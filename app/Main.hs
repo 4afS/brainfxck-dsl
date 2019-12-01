@@ -129,6 +129,3 @@ hello = do
   forward
   increment
   out
-  forward
-  increment
-  out

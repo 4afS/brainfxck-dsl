@@ -69,32 +69,33 @@ runBrainfxck' :: Free Brainfxck () -> StateT Env IO ()
 runBrainfxck' = foldFree goBrainfxck
 
 goBrainfxck :: Brainfxck r -> StateT Env IO r
-goBrainfxck (Forward next) = modify (_2 %~ (+ 1)) >> return next
-goBrainfxck (Backward next) = modify (_2 %~ subtract 1) >> return next
+goBrainfxck (Forward next) = do
+  modify $ _2 %~ (+ 1)
+  return next
+goBrainfxck (Backward next) = do
+  modify $ _2 %~ subtract 1
+  return next
 goBrainfxck (Increment next) = do
-  (memory, pointer) <- get
-  modify $ _1 %~ applyMemoryPointed (+ 1) pointer
+  modify $ applyMemoryPointed (+ 1)
   return next
 goBrainfxck (Decrement next) = do
-  (memory, pointer) <- get
-  modify $ _1 %~ applyMemoryPointed (subtract 1) pointer
+  modify . applyMemoryPointed $ subtract 1
   return next
 goBrainfxck (Out next) = do
   (memory, pointer) <- get
   lift . putChar . chr $ memory ! pointer
   return next
 goBrainfxck (Substitution next) = do
-  (memory, pointer) <- get
   c <- lift getChar
-  modify $ _1 %~ applyMemoryPointed (const (ord c)) pointer
+  modify . applyMemoryPointed . const $ ord c
   return next
 goBrainfxck (Loop loop next) = do
   runBrainfxck' loop
   (memory, pointer) <- get
-  if (memory ! pointer) > 0
-    then goBrainfxck (Loop loop next)
+  if memory ! pointer > 0
+    then goBrainfxck $ Loop loop next
     else return next
 
-applyMemoryPointed :: (Int -> Int) -> Pointer -> Memory -> Memory
-applyMemoryPointed f pointer memory =
-  memory // [(pointer, f (memory ! pointer))]
+applyMemoryPointed :: (Int -> Int) -> Env -> Env
+applyMemoryPointed f (memory, pointer) =
+  (memory // [(pointer, f $ memory ! pointer)], pointer)
